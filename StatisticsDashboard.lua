@@ -368,6 +368,12 @@ end
 function SD:UpdateRealTimeMetrics()
     if not UnitExists("player") then return end
     
+    -- Don't update metrics as frequently in open world to reduce overhead
+    if not TCP.settings.enableOpenWorld then
+        local inInstance, _ = IsInInstance()
+        if not inInstance then return end
+    end
+    
     -- Update session stats from other modules
     if TCP.PullAnalyzer then
         self.sessionStats.totalPulls = #TCP.PullAnalyzer.pullHistory
@@ -390,11 +396,17 @@ function SD:UpdateRealTimeMetrics()
     -- Update keystone level if in M+
     if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
         local keystoneInfo = C_ChallengeMode.GetActiveKeystoneInfo()
-        if keystoneInfo then
+        if keystoneInfo and type(keystoneInfo) == "table" then
             local level = keystoneInfo.level or keystoneInfo[1]
-            if level then
+            if level and type(level) == "number" then
                 self.sessionStats.keystoneLevel = level
             end
+        elseif type(keystoneInfo) == "number" and keystoneInfo > 0 then
+            -- Sometimes the API returns just the level directly
+            self.sessionStats.keystoneLevel = keystoneInfo
+        else
+            -- Not in M+ or no active keystone
+            self.sessionStats.keystoneLevel = 0
         end
     end
     
