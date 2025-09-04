@@ -73,30 +73,18 @@ function TA:Initialize()
 end
 
 function TA:CreateThreatFrame()
-    -- Try modern approach first, fallback to older method
-    local template = nil
-    if BackdropTemplateMixin then
-        template = "BackdropTemplate"
-    end
-    
-    self.threatFrame = CreateFrame("Frame", "TCPThreatFrame", UIParent, template)
+    self.threatFrame = CreateFrame("Frame", "TCPThreatFrame", UIParent, "BackdropTemplate")
     self.threatFrame:SetSize(300, 150)
     self.threatFrame:SetPoint("TOPRIGHT", -20, -100)
     
-    -- Apply backdrop with compatibility check
-    local backdropInfo = {
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 16, edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 }
-    }
-    
+    -- Use BackdropTemplate mixin
     if self.threatFrame.SetBackdrop then
-        self.threatFrame:SetBackdrop(backdropInfo)
-    elseif BackdropTemplateMixin then
-        -- Use mixin directly
-        Mixin(self.threatFrame, BackdropTemplateMixin)
-        self.threatFrame:SetBackdrop(backdropInfo)
+        self.threatFrame:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true, tileSize = 16, edgeSize = 16,
+            insets = { left = 4, right = 4, top = 4, bottom = 4 }
+        })
     end
     
     self.threatFrame:Hide()
@@ -309,7 +297,53 @@ function TA:UpdateThreatDisplay(threats, hasLowThreat)
     self.threatFrame:Show()
 end
 
-function TA:SuggestThreatRecovery(mobGUID)
+function TA:UpdateThreatInfo()
+    -- Update threat information when target changes
+    if not UnitExists("target") or not UnitCanAttack("player", "target") then
+        return
+    end
+    
+    local isTanking, status, threatpct, rawthreatpct, threatvalue = UnitDetailedThreatSituation("player", "target")
+    
+    if threatpct then
+        -- Store threat information for analysis
+        local currentTime = GetTime()
+        table.insert(self.threatEvents, {
+            target = UnitGUID("target"),
+            targetName = UnitName("target"),
+            threatPercent = threatpct,
+            isTanking = isTanking,
+            status = status,
+            timestamp = currentTime
+        })
+        
+        -- Clean old threat events (keep last 30 seconds)
+        for i = #self.threatEvents, 1, -1 do
+            if currentTime - self.threatEvents[i].timestamp > 30 then
+                table.remove(self.threatEvents, i)
+            end
+        end
+        
+        -- Check for threat issues
+        if not isTanking and UnitAffectingCombat("player") then
+            self:CheckThreatWarnings(threatpct, UnitName("target"))
+        end
+    end
+end
+
+function TA:CheckThreatWarnings(threatPercent, targetName)
+    -- Warn if threat is getting low
+    if threatPercent < 110 and threatPercent > 0 then
+        if TCP.debug then
+            print(string.format("TCP: Low threat on %s (%.0f%%)", targetName, threatPercent))
+        end
+        
+        -- Suggest threat actions if threat is very low
+        if threatPercent < 105 then
+            self:SuggestThreatActions()
+        end
+    end
+end
     local _, class = UnitClass("player")
     local abilities = self.THREAT_ABILITIES[class] or {}
     
