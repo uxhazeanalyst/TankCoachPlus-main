@@ -1,0 +1,19 @@
+## Interface: 110200
+## Title: TankCoachPlus-main
+## Notes: Mythic+ tank coaching: track cooldowns, analyze danger windows, suggest missed CDs, and adapt stat weights per pull.
+## Author: You + GPT-5 Thinking
+## Version: 0.1.0
+## SavedVariables: TankCoachPlusDB
+
+
+Core.lua
+CooldownTracker.lua
+ThreatAnalyzer.lua
+PullAnalyzer.lua
+StatsModel.lua
+SuggestionEngine.lua
+Learning.lua
+CombatText.lua
+nameplate_overlay_floats.lua
+UI.lua
+
