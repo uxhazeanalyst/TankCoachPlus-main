@@ -7,10 +7,13 @@
 
 
 Core.lua
+AffixCoach.lua
 CooldownTracker.lua
 ThreatAnalyzer.lua
 PullAnalyzer.lua
+PositioningAnalyzer.lua
 StatsModel.lua
+StatisticsDashboard.lua
 SuggestionEngine.lua
 Learning.lua
 CombatText.lua
