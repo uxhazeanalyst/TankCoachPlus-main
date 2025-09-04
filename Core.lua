@@ -71,7 +71,7 @@ end
 local function getActiveAffixes()
   if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
     local keystoneInfo = C_ChallengeMode.GetActiveKeystoneInfo()
-    if keystoneInfo then
+    if keystoneInfo and type(keystoneInfo) == "table" then
       local _, affixes = keystoneInfo
       return affixes or {}
     end
