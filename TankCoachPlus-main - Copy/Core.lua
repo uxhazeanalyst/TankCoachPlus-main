@@ -150,6 +150,8 @@ SlashCmdList["TCP"] = function(msg)
     TCP:PrintHistory(n)
   elseif msg == "ui" then
     if TCP.HistoryUI then TCP.HistoryUI:Show() end
+  elseif msg == "dashboard" then
+    if TCP.DashboardUI then TCP.DashboardUI:Show() end
   elseif msg == "summary" then
     TCP:GenerateCoachSummary()
   elseif msg == "nameplates" then
@@ -160,13 +162,56 @@ SlashCmdList["TCP"] = function(msg)
     print("TCP Debug:", TCP.debug)
   elseif msg == "reset" then
     ResetTracking()
-    print("TCP: Tracking data reset")
+    if TCP.PullAnalyzer then TCP.PullAnalyzer:ResetPullHistory() end
+    if TCP.StatisticsDashboard then TCP.StatisticsDashboard:ResetSessionData() end
+    if TCP.PositioningAnalyzer then TCP.PositioningAnalyzer:ResetPositionData() end
+    print("TCP: All tracking data reset")
   elseif msg == "mode" then
     TCP.settings.onlyMythicPlus = not TCP.settings.onlyMythicPlus
     print("TCP Mode:", TCP.settings.onlyMythicPlus and "Mythic+ Only" or "All Content")
   elseif msg == "openworld" then
     TCP.settings.enableOpenWorld = not TCP.settings.enableOpenWorld
     print("TCP Open World:", TCP.settings.enableOpenWorld and "ENABLED" or "DISABLED")
+  elseif msg == "cooldowns" then
+    if TCP.CooldownTracker and TCP.CooldownTracker.alertFrame then
+      if TCP.CooldownTracker.alertFrame:IsShown() then
+        TCP.CooldownTracker.alertFrame:Hide()
+        print("TCP: Cooldown alerts disabled")
+      else
+        TCP.CooldownTracker.alertFrame:Show()
+        print("TCP: Cooldown alerts enabled")
+      end
+    end
+  elseif msg == "threat" then
+    if TCP.ThreatAnalyzer and TCP.ThreatAnalyzer.threatFrame then
+      if TCP.ThreatAnalyzer.threatFrame:IsShown() then
+        TCP.ThreatAnalyzer.threatFrame:Hide()
+        print("TCP: Threat display hidden")
+      else
+        TCP.ThreatAnalyzer.threatFrame:Show()
+        print("TCP: Threat display shown")
+      end
+    end
+  elseif msg == "positioning" then
+    if TCP.PositioningAnalyzer and TCP.PositioningAnalyzer.posFrame then
+      if TCP.PositioningAnalyzer.posFrame:IsShown() then
+        TCP.PositioningAnalyzer.posFrame:Hide()
+        print("TCP: Positioning analysis hidden")
+      else
+        TCP.PositioningAnalyzer.posFrame:Show()
+        print("TCP: Positioning analysis shown")
+      end
+    end
+  elseif msg == "affixes" then
+    if TCP.AffixCoach and TCP.AffixCoach.affixFrame then
+      if TCP.AffixCoach.affixFrame:IsShown() then
+        TCP.AffixCoach.affixFrame:Hide()
+        print("TCP: Affix coaching hidden")
+      else
+        TCP.AffixCoach.affixFrame:Show()
+        print("TCP: Affix coaching shown")
+      end
+    end
   elseif msg == "status" then
     local inInstance, instanceType = IsInInstance()
     local _, _, difficulty = GetInstanceInfo()
@@ -177,17 +222,31 @@ SlashCmdList["TCP"] = function(msg)
     print("  Currently Tracking:", shouldTrack and "YES" or "NO")
     print("  Mode:", TCP.settings.onlyMythicPlus and "M+ Only" or "All Content")
     print("  Events Recorded:", #TCP.events)
+    print("  Modules Loaded:")
+    print("    - CooldownTracker:", TCP.CooldownTracker and "✓" or "✗")
+    print("    - ThreatAnalyzer:", TCP.ThreatAnalyzer and "✓" or "✗")
+    print("    - PullAnalyzer:", TCP.PullAnalyzer and "✓" or "✗")
+    print("    - AffixCoach:", TCP.AffixCoach and "✓" or "✗")
+    print("    - PositioningAnalyzer:", TCP.PositioningAnalyzer and "✓" or "✗")
+    print("    - StatisticsDashboard:", TCP.StatisticsDashboard and "✓" or "✗")
   else
-    print("TankCoachPlus Commands:")
-    print("/tcp recommend - show stat recommendations")
-    print("/tcp history <n> - show last n pull summaries")
-    print("/tcp ui - open history browser")
-    print("/tcp summary - post-dungeon summary report")
-    print("/tcp nameplates - toggle mob overlay")
-    print("/tcp reset - clear all tracking data")
-    print("/tcp mode - toggle M+ only vs all content")
-    print("/tcp openworld - toggle open world tracking")
-    print("/tcp status - show current tracking status")
-    print("/tcp debug - toggle debug mode")
+    print("|cFFFFD700TankCoachPlus Commands:|r")
+    print("|cFF87CEEB/tcp recommend|r - show stat recommendations")
+    print("|cFF87CEEB/tcp history <n>|r - show last n pull summaries")
+    print("|cFF87CEEB/tcp ui|r - open history browser")
+    print("|cFF87CEEB/tcp dashboard|r - open advanced statistics dashboard")
+    print("|cFF87CEEB/tcp summary|r - post-dungeon summary report")
+    print("|cFF87CEEB/tcp nameplates|r - toggle mob overlay")
+    print("|cFF87CEEB/tcp reset|r - clear all tracking data")
+    print("|cFF87CEEB/tcp mode|r - toggle M+ only vs all content")
+    print("|cFF87CEEB/tcp openworld|r - toggle open world tracking")
+    print("|cFF87CEEB/tcp status|r - show current tracking status")
+    print("|cFF87CEEB/tcp debug|r - toggle debug mode")
+    print("")
+    print("|cFFFFD700Module Controls:|r")
+    print("|cFF87CEEB/tcp cooldowns|r - toggle cooldown alerts")
+    print("|cFF87CEEB/tcp threat|r - toggle threat display")
+    print("|cFF87CEEB/tcp positioning|r - toggle positioning analysis")
+    print("|cFF87CEEB/tcp affixes|r - toggle affix coaching")
   end
 end
