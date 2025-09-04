@@ -109,15 +109,32 @@ function AC:Initialize()
 end
 
 function AC:CreateAffixFrame()
-    self.affixFrame = CreateFrame("Frame", "TCPAffixFrame", UIParent)
+    -- Try modern approach first, fallback to older method
+    local template = nil
+    if BackdropTemplateMixin then
+        template = "BackdropTemplate"
+    end
+    
+    self.affixFrame = CreateFrame("Frame", "TCPAffixFrame", UIParent, template)
     self.affixFrame:SetSize(250, 100)
     self.affixFrame:SetPoint("TOPLEFT", 20, -100)
-    self.affixFrame:SetBackdrop({
+    
+    -- Apply backdrop with compatibility check
+    local backdropInfo = {
         bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
         edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
         tile = true, tileSize = 16, edgeSize = 16,
         insets = { left = 4, right = 4, top = 4, bottom = 4 }
-    })
+    }
+    
+    if self.affixFrame.SetBackdrop then
+        self.affixFrame:SetBackdrop(backdropInfo)
+    elseif BackdropTemplateMixin then
+        -- Use mixin directly
+        Mixin(self.affixFrame, BackdropTemplateMixin)
+        self.affixFrame:SetBackdrop(backdropInfo)
+    end
+    
     self.affixFrame:Hide()
     
     -- Title
@@ -138,9 +155,9 @@ function AC:UpdateActiveAffixes()
     
     if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
         local keystoneInfo = C_ChallengeMode.GetActiveKeystoneInfo()
-        if keystoneInfo then
+        if keystoneInfo and type(keystoneInfo) == "table" then
             local _, affixes = keystoneInfo
-            if affixes then
+            if affixes and type(affixes) == "table" then
                 for _, affixInfo in ipairs(affixes) do
                     local affixID = affixInfo.id or affixInfo
                     if self.AFFIX_DATA[affixID] then
