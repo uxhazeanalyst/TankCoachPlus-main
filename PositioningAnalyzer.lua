@@ -35,26 +35,30 @@ function PA:Initialize()
 end
 
 function PA:CreatePositioningFrame()
-    self.posFrame = CreateFrame("Frame", "TCPPositioningFrame", UIParent, "BackdropTemplate")
+    -- Try modern approach first, fallback to older method
+    local template = nil
+    if BackdropTemplateMixin then
+        template = "BackdropTemplate"
+    end
+    
+    self.posFrame = CreateFrame("Frame", "TCPPositioningFrame", UIParent, template)
     self.posFrame:SetSize(280, 120)
     self.posFrame:SetPoint("BOTTOMRIGHT", -20, 100)
     
-    -- Set backdrop (using the modern API)
+    -- Apply backdrop with compatibility check
+    local backdropInfo = {
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 16, edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 }
+    }
+    
     if self.posFrame.SetBackdrop then
-        self.posFrame:SetBackdrop({
-            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true, tileSize = 16, edgeSize = 16,
-            insets = { left = 4, right = 4, top = 4, bottom = 4 }
-        })
-    else
-        -- Fallback for older API
-        self.posFrame:SetBackdrop({
-            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true, tileSize = 16, edgeSize = 16,
-            insets = { left = 4, right = 4, top = 4, bottom = 4 }
-        })
+        self.posFrame:SetBackdrop(backdropInfo)
+    elseif BackdropTemplateMixin then
+        -- Use mixin directly
+        Mixin(self.posFrame, BackdropTemplateMixin)
+        self.posFrame:SetBackdrop(backdropInfo)
     end
     
     self.posFrame:Hide()
