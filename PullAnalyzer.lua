@@ -49,15 +49,32 @@ function PA:Initialize()
 end
 
 function PA:CreatePullSummaryFrame()
-    self.summaryFrame = CreateFrame("Frame", "TCPPullSummary", UIParent)
+    -- Try modern approach first, fallback to older method
+    local template = nil
+    if BackdropTemplateMixin then
+        template = "BackdropTemplate"
+    end
+    
+    self.summaryFrame = CreateFrame("Frame", "TCPPullSummary", UIParent, template)
     self.summaryFrame:SetSize(350, 200)
     self.summaryFrame:SetPoint("CENTER", 300, 0)
-    self.summaryFrame:SetBackdrop({
+    
+    -- Apply backdrop with compatibility check
+    local backdropInfo = {
         bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
         edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
         tile = true, tileSize = 16, edgeSize = 16,
         insets = { left = 4, right = 4, top = 4, bottom = 4 }
-    })
+    }
+    
+    if self.summaryFrame.SetBackdrop then
+        self.summaryFrame:SetBackdrop(backdropInfo)
+    elseif BackdropTemplateMixin then
+        -- Use mixin directly
+        Mixin(self.summaryFrame, BackdropTemplateMixin)
+        self.summaryFrame:SetBackdrop(backdropInfo)
+    end
+    
     self.summaryFrame:Hide()
     
     -- Title
@@ -418,3 +435,6 @@ function PA:ResetPullHistory()
         print("TCP: Pull history cleared")
     end
 end
+
+-- Initialize
+PA:Initialize()
