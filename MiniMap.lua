@@ -97,6 +97,28 @@ function MB:CreateDropdownMenu()
             notCheckable = true
         },
         {
+            text = "Map Recorder",
+            func = function() 
+                if TCP.MapRecorderUI then 
+                    TCP.MapRecorderUI:Show() 
+                end 
+            end,
+            notCheckable = true
+        },
+        {
+            text = "Combat Analytics",
+            func = function() 
+                if TCP.CombatAnalyticsUI then 
+                    if TCP.CombatAnalyticsUI:IsShown() then
+                        TCP.CombatAnalyticsUI:Hide()
+                    else
+                        TCP.CombatAnalyticsUI:Show()
+                    end
+                end 
+            end,
+            notCheckable = true
+        },
+        {
             text = "", -- Separator
             disabled = true,
             notCheckable = true
