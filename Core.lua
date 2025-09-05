@@ -216,6 +216,24 @@ SlashCmdList["TCP"] = function(msg)
     if TCP.MinimapButton then
       TCP.MinimapButton:ToggleButton()
     end
+  elseif msg == "maprecord" then
+    if TCP.MapRecorder then
+      if TCP.MapRecorderUI then
+        TCP.MapRecorderUI:Show()
+      end
+    end
+  elseif msg == "analytics" then
+    if TCP.CombatAnalytics then
+      if TCP.CombatAnalyticsUI then
+        if TCP.CombatAnalyticsUI:IsShown() then
+          TCP.CombatAnalyticsUI:Hide()
+          print("TCP: Combat analytics hidden")
+        else
+          TCP.CombatAnalyticsUI:Show()
+          print("TCP: Combat analytics shown")
+        end
+      end
+    end
   elseif msg == "status" then
     local inInstance, instanceType = IsInInstance()
     local _, _, difficulty = GetInstanceInfo()
@@ -234,6 +252,8 @@ SlashCmdList["TCP"] = function(msg)
     print("    - PositioningAnalyzer:", TCP.PositioningAnalyzer and "✓" or "✗")
     print("    - StatisticsDashboard:", TCP.StatisticsDashboard and "✓" or "✗")
     print("    - MinimapButton:", TCP.MinimapButton and "✓" or "✗")
+    print("    - MapRecorder:", TCP.MapRecorder and "✓" or "✗")
+    print("    - CombatAnalytics:", TCP.CombatAnalytics and "✓" or "✗")
   else
     print("|cFFFFD700TankCoachPlus Commands:|r")
     print("|cFF87CEEB/tcp recommend|r - show stat recommendations")
@@ -254,5 +274,9 @@ SlashCmdList["TCP"] = function(msg)
     print("|cFF87CEEB/tcp positioning|r - toggle positioning analysis")
     print("|cFF87CEEB/tcp affixes|r - toggle affix coaching")
     print("|cFF87CEEB/tcp minimap|r - toggle minimap button")
+    print("")
+    print("|cFFFFD700Advanced Features:|r")
+    print("|cFF87CEEB/tcp maprecord|r - open map position recorder")
+    print("|cFF87CEEB/tcp analytics|r - toggle live combat analytics")
   end
 end
