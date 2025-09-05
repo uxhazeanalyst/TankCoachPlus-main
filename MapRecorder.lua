@@ -75,16 +75,26 @@ function MR:CreateMapFrame()
     self.mapFrame.title:SetText("Map Recorder")
     
     -- Map display area
-    self.mapDisplay = CreateFrame("Frame", nil, self.mapFrame)
+    self.mapDisplay = CreateFrame("Frame", nil, self.mapFrame, "BackdropTemplate")
     self.mapDisplay:SetPoint("TOPLEFT", 15, -35)
     self.mapDisplay:SetPoint("BOTTOMRIGHT", -35, 50)
-    self.mapDisplay:SetBackdrop({
+    
+    local backdropInfo = {
         bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
         tile = true, tileSize = 16, edgeSize = 16,
         insets = { left = 5, right = 5, top = 5, bottom = 5 }
-    })
-    self.mapDisplay:SetBackdropColor(0.1, 0.1, 0.1, 0.8)
+    }
+    
+    if self.mapDisplay.SetBackdrop then
+        self.mapDisplay:SetBackdrop(backdropInfo)
+        self.mapDisplay:SetBackdropColor(0.1, 0.1, 0.1, 0.8)
+    elseif BackdropTemplateMixin then
+        -- Use mixin directly
+        Mixin(self.mapDisplay, BackdropTemplateMixin)
+        self.mapDisplay:SetBackdrop(backdropInfo)
+        self.mapDisplay:SetBackdropColor(0.1, 0.1, 0.1, 0.8)
+    end
     
     -- Map coordinates text
     self.coordText = self.mapDisplay:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
