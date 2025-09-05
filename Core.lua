@@ -212,6 +212,10 @@ SlashCmdList["TCP"] = function(msg)
         print("TCP: Affix coaching shown")
       end
     end
+  elseif msg == "minimap" then
+    if TCP.MinimapButton then
+      TCP.MinimapButton:ToggleButton()
+    end
   elseif msg == "status" then
     local inInstance, instanceType = IsInInstance()
     local _, _, difficulty = GetInstanceInfo()
@@ -229,6 +233,7 @@ SlashCmdList["TCP"] = function(msg)
     print("    - AffixCoach:", TCP.AffixCoach and "✓" or "✗")
     print("    - PositioningAnalyzer:", TCP.PositioningAnalyzer and "✓" or "✗")
     print("    - StatisticsDashboard:", TCP.StatisticsDashboard and "✓" or "✗")
+    print("    - MinimapButton:", TCP.MinimapButton and "✓" or "✗")
   else
     print("|cFFFFD700TankCoachPlus Commands:|r")
     print("|cFF87CEEB/tcp recommend|r - show stat recommendations")
@@ -248,5 +253,6 @@ SlashCmdList["TCP"] = function(msg)
     print("|cFF87CEEB/tcp threat|r - toggle threat display")
     print("|cFF87CEEB/tcp positioning|r - toggle positioning analysis")
     print("|cFF87CEEB/tcp affixes|r - toggle affix coaching")
+    print("|cFF87CEEB/tcp minimap|r - toggle minimap button")
   end
 end
