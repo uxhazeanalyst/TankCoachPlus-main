@@ -19,5 +19,6 @@ SuggestionEngine.lua
 Learning.lua
 CombatText.lua
 nameplate_overlay_floats.lua
+MapRecorder.lua
 UI.lua
 
