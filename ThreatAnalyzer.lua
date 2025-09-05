@@ -73,18 +73,30 @@ function TA:Initialize()
 end
 
 function TA:CreateThreatFrame()
-    self.threatFrame = CreateFrame("Frame", "TCPThreatFrame", UIParent, "BackdropTemplate")
+    -- Try modern approach first, fallback to older method
+    local template = nil
+    if BackdropTemplateMixin then
+        template = "BackdropTemplate"
+    end
+    
+    self.threatFrame = CreateFrame("Frame", "TCPThreatFrame", UIParent, template)
     self.threatFrame:SetSize(300, 150)
     self.threatFrame:SetPoint("TOPRIGHT", -20, -100)
     
-    -- Use BackdropTemplate mixin
+    -- Apply backdrop with compatibility check
+    local backdropInfo = {
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 16, edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 }
+    }
+    
     if self.threatFrame.SetBackdrop then
-        self.threatFrame:SetBackdrop({
-            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true, tileSize = 16, edgeSize = 16,
-            insets = { left = 4, right = 4, top = 4, bottom = 4 }
-        })
+        self.threatFrame:SetBackdrop(backdropInfo)
+    elseif BackdropTemplateMixin then
+        -- Use mixin directly
+        Mixin(self.threatFrame, BackdropTemplateMixin)
+        self.threatFrame:SetBackdrop(backdropInfo)
     end
     
     self.threatFrame:Hide()
