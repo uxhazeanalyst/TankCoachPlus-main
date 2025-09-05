@@ -394,21 +394,23 @@ function SD:UpdateRealTimeMetrics()
     end
     
     -- Update keystone level if in M+
+    local keystoneLevel = 0
     if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
         local keystoneInfo = C_ChallengeMode.GetActiveKeystoneInfo()
-        if keystoneInfo and type(keystoneInfo) == "table" then
-            local level = keystoneInfo.level or keystoneInfo[1]
-            if level and type(level) == "number" then
-                self.sessionStats.keystoneLevel = level
+        if keystoneInfo then
+            if type(keystoneInfo) == "table" then
+                -- Table format: extract level from table
+                local level = keystoneInfo.level or keystoneInfo[1]
+                if level and type(level) == "number" then
+                    keystoneLevel = level
+                end
+            elseif type(keystoneInfo) == "number" and keystoneInfo > 0 then
+                -- Number format: use directly
+                keystoneLevel = keystoneInfo
             end
-        elseif type(keystoneInfo) == "number" and keystoneInfo > 0 then
-            -- Sometimes the API returns just the level directly
-            self.sessionStats.keystoneLevel = keystoneInfo
-        else
-            -- Not in M+ or no active keystone
-            self.sessionStats.keystoneLevel = 0
         end
     end
+    self.sessionStats.keystoneLevel = keystoneLevel
     
     -- Store performance snapshot every minute
     if GetTime() - (self.lastSnapshot or 0) > 60 then
