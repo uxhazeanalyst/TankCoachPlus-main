@@ -72,13 +72,39 @@ function SD:CreateTabSystem()
     }
     
     for i, data in ipairs(tabData) do
-        local tab = CreateFrame("Button", nil, self.dashFrame, "ChatTabTemplate")
-        tab:SetPoint("TOPLEFT", 10 + (i-1) * 120, -30)
+        local tab = CreateFrame("Button", nil, self.dashFrame)
         tab:SetSize(120, 25)
-        tab:SetText(data.name)
+        tab:SetPoint("TOPLEFT", 10 + (i-1) * 120, -30)
+        
+        -- Create tab texture background
+        tab:SetNormalTexture("Interface\\ChatFrame\\ChatFrameTab-BGLeft")
+        tab:SetHighlightTexture("Interface\\ChatFrame\\ChatFrameTab-BGLeft")
+        tab:SetPushedTexture("Interface\\ChatFrame\\ChatFrameTab-BGLeft")
+        
+        -- Tab text
+        tab.text = tab:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        tab.text:SetPoint("CENTER")
+        tab.text:SetText(data.name)
+        
         tab.key = data.key
         tab:SetScript("OnClick", function() self:ShowTab(data.key) end)
+        tab:SetScript("OnEnter", function()
+            tab.text:SetTextColor(1, 1, 1)
+        end)
+        tab:SetScript("OnLeave", function()
+            if self.activeTab ~= data.key then
+                tab.text:SetTextColor(0.8, 0.8, 0.8)
+            end
+        end)
+        
         self.tabs[data.key] = tab
+        
+        -- Set initial colors
+        if i == 1 then
+            tab.text:SetTextColor(1, 1, 1) -- Active
+        else
+            tab.text:SetTextColor(0.8, 0.8, 0.8) -- Inactive
+        end
     end
     
     self.activeTab = "overview"
@@ -88,11 +114,9 @@ function SD:ShowTab(tabKey)
     -- Update tab appearance
     for key, tab in pairs(self.tabs) do
         if key == tabKey then
-            tab:SetScript("OnEnter", nil)
-            tab:SetScript("OnLeave", nil)
+            tab.text:SetTextColor(1, 1, 1) -- Active (white)
         else
-            tab:SetScript("OnEnter", ChatTab_OnEnter)
-            tab:SetScript("OnLeave", ChatTab_OnLeave)
+            tab.text:SetTextColor(0.8, 0.8, 0.8) -- Inactive (gray)
         end
     end
     
