@@ -204,7 +204,7 @@ function TA:RecordAggroLoss(mobGUID, newTargetGUID, timestamp)
         newTarget = newTargetGUID,
         targetName = targetName,
         timestamp = timestamp,
-        playerThreatActions = self:GetRecentThreatActions(timestamp, 5) -- Last 5 seconds
+        playerThreatActions = self:GetRecentThreatActions(timestamp, 5)
     })
     
     -- Alert for aggro loss
@@ -287,12 +287,12 @@ function TA:UpdateThreatDisplay(threats, hasLowThreat)
     table.sort(threats, function(a, b) return a.percent > b.percent end)
     
     for i, threat in ipairs(threats) do
-        if i <= 5 then -- Show top 5 threats
-            local color = "|cff00ff00" -- Green
+        if i <= 5 then
+            local color = "|cff00ff00"
             if not threat.isTanking then
-                color = "|cffff0000" -- Red
+                color = "|cffff0000"
             elseif threat.percent < 130 then
-                color = "|cffffff00" -- Yellow
+                color = "|cffffff00"
             end
             
             table.insert(lines, string.format("%s%s: %.0f%%|r", 
@@ -318,7 +318,6 @@ function TA:UpdateThreatInfo()
     local isTanking, status, threatpct, rawthreatpct, threatvalue = UnitDetailedThreatSituation("player", "target")
     
     if threatpct then
-        -- Store threat information for analysis
         local currentTime = GetTime()
         table.insert(self.threatEvents, {
             target = UnitGUID("target"),
@@ -356,6 +355,8 @@ function TA:CheckThreatWarnings(threatPercent, targetName)
         end
     end
 end
+
+function TA:SuggestThreatRecovery(mobGUID)
     local _, class = UnitClass("player")
     local abilities = self.THREAT_ABILITIES[class] or {}
     
@@ -370,7 +371,9 @@ end
     
     if #suggestions > 0 then
         local message = "Consider using: " .. table.concat(suggestions, ", ")
-        TCP.CooldownTracker:TriggerAlert("Aggro Lost!", message)
+        if TCP.CooldownTracker and TCP.CooldownTracker.TriggerAlert then
+            TCP.CooldownTracker:TriggerAlert("Aggro Lost!", message)
+        end
     end
 end
 
