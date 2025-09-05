@@ -244,8 +244,185 @@ function MB:ToggleDropdown()
 end
 
 function MB:ShowDropdown()
-    -- Initialize menu with dynamic data
-    EasyMenu(self.menuItems, self.menu, "cursor", 0, 0, "MENU")
+    -- Create a simple dropdown menu manually since EasyMenu isn't always available
+    if not self.dropdownFrame then
+        self:CreateSimpleDropdown()
+    end
+    
+    -- Position near the minimap button
+    self.dropdownFrame:ClearAllPoints()
+    self.dropdownFrame:SetPoint("TOPLEFT", self.button, "BOTTOMLEFT", 0, -5)
+    self.dropdownFrame:Show()
+    
+    -- Hide after 10 seconds or when clicking elsewhere
+    C_Timer.After(10, function()
+        if self.dropdownFrame and self.dropdownFrame:IsShown() then
+            self.dropdownFrame:Hide()
+        end
+    end)
+end
+
+function MB:CreateSimpleDropdown()
+    -- Create a simple dropdown frame
+    self.dropdownFrame = CreateFrame("Frame", "TCPSimpleDropdown", UIParent, "BackdropTemplate")
+    self.dropdownFrame:SetSize(180, 300)
+    self.dropdownFrame:SetFrameStrata("TOOLTIP")
+    
+    -- Backdrop
+    if self.dropdownFrame.SetBackdrop then
+        self.dropdownFrame:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true, tileSize = 16, edgeSize = 16,
+            insets = { left = 4, right = 4, top = 4, bottom = 4 }
+        })
+        self.dropdownFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
+    elseif BackdropTemplateMixin then
+        Mixin(self.dropdownFrame, BackdropTemplateMixin)
+        self.dropdownFrame:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true, tileSize = 16, edgeSize = 16,
+            insets = { left = 4, right = 4, top = 4, bottom = 4 }
+        })
+        self.dropdownFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
+    end
+    
+    self.dropdownFrame:Hide()
+    
+    -- Create menu buttons
+    local yOffset = -10
+    local buttonHeight = 20
+    
+    -- Title
+    local title = self.dropdownFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    title:SetPoint("TOP", 0, -8)
+    title:SetText("TankCoachPlus")
+    yOffset = yOffset - 25
+    
+    -- Dashboard button
+    local dashBtn = CreateFrame("Button", nil, self.dropdownFrame)
+    dashBtn:SetSize(160, buttonHeight)
+    dashBtn:SetPoint("TOP", 0, yOffset)
+    dashBtn.text = dashBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    dashBtn.text:SetPoint("CENTER")
+    dashBtn.text:SetText("Dashboard")
+    dashBtn:SetScript("OnClick", function() 
+        if TCP.DashboardUI then TCP.DashboardUI:Show() end
+        self.dropdownFrame:Hide()
+    end)
+    dashBtn:SetScript("OnEnter", function() dashBtn.text:SetTextColor(1, 1, 0) end)
+    dashBtn:SetScript("OnLeave", function() dashBtn.text:SetTextColor(1, 1, 1) end)
+    yOffset = yOffset - buttonHeight - 2
+    
+    -- History button
+    local histBtn = CreateFrame("Button", nil, self.dropdownFrame)
+    histBtn:SetSize(160, buttonHeight)
+    histBtn:SetPoint("TOP", 0, yOffset)
+    histBtn.text = histBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    histBtn.text:SetPoint("CENTER")
+    histBtn.text:SetText("History Browser")
+    histBtn:SetScript("OnClick", function() 
+        if TCP.HistoryUI then TCP.HistoryUI:Show() end
+        self.dropdownFrame:Hide()
+    end)
+    histBtn:SetScript("OnEnter", function() histBtn.text:SetTextColor(1, 1, 0) end)
+    histBtn:SetScript("OnLeave", function() histBtn.text:SetTextColor(1, 1, 1) end)
+    yOffset = yOffset - buttonHeight - 2
+    
+    -- Map Recorder button
+    local mapBtn = CreateFrame("Button", nil, self.dropdownFrame)
+    mapBtn:SetSize(160, buttonHeight)
+    mapBtn:SetPoint("TOP", 0, yOffset)
+    mapBtn.text = mapBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    mapBtn.text:SetPoint("CENTER")
+    mapBtn.text:SetText("Map Recorder")
+    mapBtn:SetScript("OnClick", function() 
+        if TCP.MapRecorderUI then TCP.MapRecorderUI:Show() end
+        self.dropdownFrame:Hide()
+    end)
+    mapBtn:SetScript("OnEnter", function() mapBtn.text:SetTextColor(1, 1, 0) end)
+    mapBtn:SetScript("OnLeave", function() mapBtn.text:SetTextColor(1, 1, 1) end)
+    yOffset = yOffset - buttonHeight - 2
+    
+    -- Analytics button
+    local analyticsBtn = CreateFrame("Button", nil, self.dropdownFrame)
+    analyticsBtn:SetSize(160, buttonHeight)
+    analyticsBtn:SetPoint("TOP", 0, yOffset)
+    analyticsBtn.text = analyticsBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    analyticsBtn.text:SetPoint("CENTER")
+    analyticsBtn.text:SetText("Combat Analytics")
+    analyticsBtn:SetScript("OnClick", function() 
+        if TCP.CombatAnalyticsUI then 
+            if TCP.CombatAnalyticsUI:IsShown() then
+                TCP.CombatAnalyticsUI:Hide()
+            else
+                TCP.CombatAnalyticsUI:Show()
+            end
+        end
+        self.dropdownFrame:Hide()
+    end)
+    analyticsBtn:SetScript("OnEnter", function() analyticsBtn.text:SetTextColor(1, 1, 0) end)
+    analyticsBtn:SetScript("OnLeave", function() analyticsBtn.text:SetTextColor(1, 1, 1) end)
+    yOffset = yOffset - buttonHeight - 5
+    
+    -- Separator line
+    local separator = self.dropdownFrame:CreateTexture(nil, "ARTWORK")
+    separator:SetHeight(1)
+    separator:SetColorTexture(0.5, 0.5, 0.5, 0.8)
+    separator:SetPoint("LEFT", 10, 0)
+    separator:SetPoint("RIGHT", -10, 0)
+    separator:SetPoint("TOP", 0, yOffset)
+    yOffset = yOffset - 10
+    
+    -- Settings toggle
+    local settingsBtn = CreateFrame("Button", nil, self.dropdownFrame)
+    settingsBtn:SetSize(160, buttonHeight)
+    settingsBtn:SetPoint("TOP", 0, yOffset)
+    settingsBtn.text = settingsBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    settingsBtn.text:SetPoint("CENTER")
+    settingsBtn.text:SetText("Toggle M+ Only Mode")
+    settingsBtn:SetScript("OnClick", function() 
+        TCP.settings.onlyMythicPlus = not TCP.settings.onlyMythicPlus
+        print("TCP Mode:", TCP.settings.onlyMythicPlus and "Mythic+ Only" or "All Content")
+        self.dropdownFrame:Hide()
+    end)
+    settingsBtn:SetScript("OnEnter", function() settingsBtn.text:SetTextColor(1, 1, 0) end)
+    settingsBtn:SetScript("OnLeave", function() settingsBtn.text:SetTextColor(1, 1, 1) end)
+    yOffset = yOffset - buttonHeight - 2
+    
+    -- Reset button
+    local resetBtn = CreateFrame("Button", nil, self.dropdownFrame)
+    resetBtn:SetSize(160, buttonHeight)
+    resetBtn:SetPoint("TOP", 0, yOffset)
+    resetBtn.text = resetBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    resetBtn.text:SetPoint("CENTER")
+    resetBtn.text:SetText("Reset All Data")
+    resetBtn.text:SetTextColor(1, 0.5, 0.5) -- Reddish color for destructive action
+    resetBtn:SetScript("OnClick", function() 
+        if TCP.PullAnalyzer then TCP.PullAnalyzer:ResetPullHistory() end
+        if TCP.StatisticsDashboard then TCP.StatisticsDashboard:ResetSessionData() end
+        if TCP.PositioningAnalyzer then TCP.PositioningAnalyzer:ResetPositionData() end
+        print("TCP: All tracking data reset")
+        self.dropdownFrame:Hide()
+    end)
+    resetBtn:SetScript("OnEnter", function() resetBtn.text:SetTextColor(1, 0.2, 0.2) end)
+    resetBtn:SetScript("OnLeave", function() resetBtn.text:SetTextColor(1, 0.5, 0.5) end)
+    
+    -- Hide on click outside
+    self.dropdownFrame:SetScript("OnShow", function()
+        self.dropdownFrame:SetScript("OnUpdate", function(_, elapsed)
+            if not MouseIsOver(self.dropdownFrame) and not MouseIsOver(self.button) then
+                if GetTime() - (self.dropdownFrame.showTime or 0) > 1 then -- 1 second grace period
+                    self.dropdownFrame:Hide()
+                    self.dropdownFrame:SetScript("OnUpdate", nil)
+                end
+            else
+                self.dropdownFrame.showTime = GetTime()
+            end
+        end)
+        self.dropdownFrame.showTime = GetTime()
+    end)
 end
 
 function MB:OnEnter()
