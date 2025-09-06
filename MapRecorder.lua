@@ -12,50 +12,443 @@ MR.playbackData = nil
 MR.playbackIndex = 1
 MR.isPlaying = false
 MR.recordingTimer = nil
+MR.continuousRecording = false
 
--- Class symbols for display
-MR.CLASS_SYMBOLS = {
-    WARRIOR = "🛡️",
-    PALADIN = "⚔️",
-    HUNTER = "🏹",
-    ROGUE = "🗡️",
-    PRIEST = "✨",
-    SHAMAN = "⚡",
-    MAGE = "🔮",
-    WARLOCK = "🔥",
-    MONK = "👊",
-    DRUID = "🌿",
-    DEMONHUNTER = "😈",
-    DEATHKNIGHT = "💀",
-    EVOKER = "🐲"
-}
-
--- Fallback text symbols for better compatibility
-MR.CLASS_ICONS = {
-    WARRIOR = "W",
-    PALADIN = "P", 
-    HUNTER = "H",
-    ROGUE = "R",
-    PRIEST = "Pr",
-    SHAMAN = "S",
-    MAGE = "M",
-    WARLOCK = "Wl",
-    MONK = "Mn",
-    DRUID = "D",
-    DEMONHUNTER = "DH",
-    DEATHKNIGHT = "DK",
-    EVOKER = "E"
-}
+-- Trail visual system
+MR.trailPoints = {}
+MR.trailLines = {}
+MR.maxTrailPoints = 500
+MR.trailFadeTime = 30 -- seconds
 
 function MR:Initialize()
     self:CreateMapFrame()
     self:CreateControlPanel()
     
-    -- Hook into pull analyzer for automatic recording
-    if TCP.PullAnalyzer then
-        self:HookPullAnalyzer()
+    -- Start continuous recording by default
+    self:StartContinuousRecording()
+end
+
+function MR:CreateMapFrame()
+    -- Main map recording frame
+    self.mapFrame = CreateFrame("Frame", "TCPMapRecorder", UIParent, "BasicFrameTemplate")
+    self.mapFrame:SetSize(600, 500)
+    self.mapFrame:SetPoint("CENTER", 200, 0)
+    self.mapFrame:SetMovable(true)
+    self.mapFrame:EnableMouse(true)
+    self.mapFrame:RegisterForDrag("LeftButton")
+    self.mapFrame:SetScript("OnDragStart", self.mapFrame.StartMoving)
+    self.mapFrame:SetScript("OnDragStop", self.mapFrame.StopMovingOrSizing)
+    self.mapFrame:Hide()
+    
+    -- Title
+    self.mapFrame.title = self.mapFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+    self.mapFrame.title:SetPoint("TOP", 0, -8)
+    self.mapFrame.title:SetText("Map Recorder")
+    
+    -- Map display area with actual map background
+    self.mapDisplay = CreateFrame("Frame", nil, self.mapFrame, "BackdropTemplate")
+    self.mapDisplay:SetPoint("TOPLEFT", 15, -35)
+    self.mapDisplay:SetPoint("BOTTOMRIGHT", -35, 60)
+    
+    -- Create map background texture
+    self.mapBackground = self.mapDisplay:CreateTexture(nil, "BACKGROUND")
+    self.mapBackground:SetAllPoints()
+    self.mapBackground:SetColorTexture(0.1, 0.15, 0.2, 1) -- Default dark blue-gray
+    
+    -- Border around map
+    local backdropInfo = {
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = false, edgeSize = 8,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 }
+    }
+    
+    if self.mapDisplay.SetBackdrop then
+        self.mapDisplay:SetBackdrop(backdropInfo)
+        self.mapDisplay:SetBackdropBorderColor(0.8, 0.6, 0, 0.8)
+    elseif BackdropTemplateMixin then
+        Mixin(self.mapDisplay, BackdropTemplateMixin)
+        self.mapDisplay:SetBackdrop(backdropInfo)
+        self.mapDisplay:SetBackdropBorderColor(0.8, 0.6, 0, 0.8)
+    end
+    
+    -- Map info text
+    self.mapInfoText = self.mapDisplay:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    self.mapInfoText:SetPoint("TOPLEFT", 10, -10)
+    self.mapInfoText:SetTextColor(1, 1, 1)
+    
+    -- Recording status
+    self.statusText = self.mapDisplay:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    self.statusText:SetPoint("TOP", 0, -10)
+    self.statusText:SetTextColor(0, 1, 0)
+    self.statusText:SetText("● CONTINUOUS RECORDING")
+    
+    -- Trail storage
+    self.trailPoints = {}
+    self.trailLines = {}
+    
+    -- Update map background when shown
+    self.mapFrame:SetScript("OnShow", function()
+        self:UpdateMapBackground()
+    end)
+    
+    -- Store reference
+    TCP.MapRecorderUI = self.mapFrame
+end
+
+function MR:UpdateMapBackground()
+    local mapID = C_Map.GetBestMapForUnit("player")
+    if not mapID then return end
+    
+    -- Get map texture file
+    local mapInfo = C_Map.GetMapInfo(mapID)
+    if mapInfo then
+        -- Try to load the actual map texture
+        local mapTexture = "Interface\\WorldMap\\" .. (mapInfo.name or ""):gsub(" ", "") .. "\\" .. (mapInfo.name or ""):gsub(" ", "")
+        
+        -- Update map info display
+        local zoneName = GetZoneText() or mapInfo.name or "Unknown Zone"
+        local subzoneName = GetSubZoneText() or ""
+        local coords = self:GetPlayerMapCoordinates()
+        
+        self.mapInfoText:SetText(string.format("%s\n%s\nCoords: %.1f, %.1f", 
+            zoneName, subzoneName, coords.x * 100, coords.y * 100))
+        
+        -- Set map background color based on zone type
+        if mapInfo.mapType == 1 then -- Dungeon
+            self.mapBackground:SetColorTexture(0.2, 0.1, 0.3, 1) -- Purple for dungeons
+        elseif mapInfo.mapType == 2 then -- Raid
+            self.mapBackground:SetColorTexture(0.3, 0.1, 0.1, 1) -- Dark red for raids
+        else -- Outdoor zones
+            self.mapBackground:SetColorTexture(0.1, 0.2, 0.1, 1) -- Dark green for outdoor
+        end
     end
 end
+
+function MR:GetPlayerMapCoordinates()
+    local position = C_Map.GetPlayerMapPosition(C_Map.GetBestMapForUnit("player"), "player")
+    if position then
+        return {x = position.x, y = position.y}
+    end
+    return {x = 0, y = 0}
+end
+
+function MR:CreateControlPanel()
+    -- Control panel at bottom of map frame
+    local panel = CreateFrame("Frame", nil, self.mapFrame)
+    panel:SetPoint("BOTTOMLEFT", 15, 10)
+    panel:SetPoint("BOTTOMRIGHT", -35, 10)
+    panel:SetHeight(45)
+    
+    -- Continuous recording toggle
+    self.continuousBtn = CreateFrame("Button", nil, panel, "GameMenuButtonTemplate")
+    self.continuousBtn:SetSize(120, 25)
+    self.continuousBtn:SetPoint("LEFT", 5, 10)
+    self.continuousBtn:SetText("Stop Recording")
+    self.continuousBtn:SetScript("OnClick", function() self:ToggleContinuousRecording() end)
+    
+    -- Manual recording button
+    self.manualBtn = CreateFrame("Button", nil, panel, "GameMenuButtonTemplate")
+    self.manualBtn:SetSize(100, 25)
+    self.manualBtn:SetPoint("LEFT", self.continuousBtn, "RIGHT", 5, 0)
+    self.manualBtn:SetText("Manual Record")
+    self.manualBtn:SetScript("OnClick", function() self:StartManualRecording() end)
+    
+    -- Clear trail button
+    self.clearBtn = CreateFrame("Button", nil, panel, "GameMenuButtonTemplate")
+    self.clearBtn:SetSize(80, 25)
+    self.clearBtn:SetPoint("LEFT", self.manualBtn, "RIGHT", 5, 0)
+    self.clearBtn:SetText("Clear Trail")
+    self.clearBtn:SetScript("OnClick", function() self:ClearTrail() end)
+    
+    -- Trail opacity slider
+    self.opacitySlider = CreateFrame("Slider", nil, panel, "OptionsSliderTemplate")
+    self.opacitySlider:SetPoint("LEFT", self.clearBtn, "RIGHT", 20, 0)
+    self.opacitySlider:SetSize(120, 20)
+    self.opacitySlider:SetMinMaxValues(0.1, 1.0)
+    self.opacitySlider:SetValue(0.8)
+    self.opacitySlider:SetValueStep(0.1)
+    self.opacitySlider.Text:SetText("Trail: 80%")
+    self.opacitySlider:SetScript("OnValueChanged", function(_, value)
+        self.opacitySlider.Text:SetText(string.format("Trail: %.0f%%", value * 100))
+        self:UpdateTrailOpacity(value)
+    end)
+    
+    -- Trail length info
+    self.trailInfo = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    self.trailInfo:SetPoint("BOTTOM", 0, 5)
+    self.trailInfo:SetTextColor(0.8, 0.8, 0.8)
+end
+
+function MR:StartContinuousRecording()
+    if self.continuousRecording then return end
+    
+    self.continuousRecording = true
+    self.continuousBtn:SetText("Stop Recording")
+    self.statusText:SetText("● CONTINUOUS RECORDING")
+    self.statusText:SetTextColor(0, 1, 0)
+    
+    -- Start continuous position tracking
+    self.recordingTimer = C_Timer.NewTicker(0.5, function() -- Every 0.5 seconds
+        self:RecordTrailPoint()
+    end)
+    
+    if TCP.debug then
+        print("TCP: Started continuous map recording")
+    end
+end
+
+function MR:StopContinuousRecording()
+    if not self.continuousRecording then return end
+    
+    self.continuousRecording = false
+    self.continuousBtn:SetText("Start Recording")
+    self.statusText:SetText("Recording stopped")
+    self.statusText:SetTextColor(1, 1, 0)
+    
+    if self.recordingTimer then
+        self.recordingTimer:Cancel()
+        self.recordingTimer = nil
+    end
+    
+    if TCP.debug then
+        print("TCP: Stopped continuous map recording")
+    end
+end
+
+function MR:ToggleContinuousRecording()
+    if self.continuousRecording then
+        self:StopContinuousRecording()
+    else
+        self:StartContinuousRecording()
+    end
+end
+
+function MR:RecordTrailPoint()
+    local coords = self:GetPlayerMapCoordinates()
+    if coords.x == 0 and coords.y == 0 then return end
+    
+    local currentTime = GetTime()
+    local inCombat = UnitAffectingCombat("player")
+    local healthPercent = UnitHealth("player") / math.max(UnitHealthMax("player"), 1)
+    
+    local trailPoint = {
+        x = coords.x,
+        y = coords.y,
+        time = currentTime,
+        inCombat = inCombat,
+        health = healthPercent
+    }
+    
+    table.insert(self.trailPoints, trailPoint)
+    
+    -- Limit trail points for performance
+    while #self.trailPoints > self.maxTrailPoints do
+        table.remove(self.trailPoints, 1)
+        -- Also remove corresponding visual elements
+        if #self.trailLines > 0 then
+            local oldLine = table.remove(self.trailLines, 1)
+            if oldLine and oldLine.texture then
+                oldLine.texture:Hide()
+                oldLine.texture = nil
+            end
+        end
+    end
+    
+    -- Create visual trail point
+    self:CreateTrailVisual(trailPoint, #self.trailPoints)
+    
+    -- Update trail info
+    self:UpdateTrailInfo()
+end
+
+function MR:CreateTrailVisual(point, index)
+    if not self.mapDisplay then return end
+    
+    -- Convert map coordinates to display coordinates
+    local displayWidth = self.mapDisplay:GetWidth()
+    local displayHeight = self.mapDisplay:GetHeight()
+    local displayX = point.x * displayWidth
+    local displayY = (1 - point.y) * displayHeight -- Flip Y coordinate
+    
+    -- Create small dot for this position
+    local dot = self.mapDisplay:CreateTexture(nil, "OVERLAY")
+    dot:SetSize(3, 3)
+    dot:SetPoint("BOTTOMLEFT", self.mapDisplay, "BOTTOMLEFT", displayX - 1.5, displayY - 1.5)
+    
+    -- Color based on combat and health
+    if point.inCombat then
+        -- Red trail in combat, intensity based on health
+        local intensity = 1 - point.health
+        dot:SetColorTexture(1, intensity * 0.3, intensity * 0.1, 0.8)
+    else
+        -- Blue trail out of combat
+        dot:SetColorTexture(0.2, 0.6, 1, 0.6)
+    end
+    
+    -- Store the dot for cleanup
+    local trailElement = {
+        texture = dot,
+        time = point.time,
+        point = point
+    }
+    
+    table.insert(self.trailLines, trailElement)
+    
+    -- Connect to previous point if exists
+    if index > 1 and self.trailLines[index - 1] then
+        self:CreateTrailConnection(self.trailLines[index - 1], trailElement)
+    end
+    
+    -- Fade old trail points
+    self:FadeOldTrailPoints()
+end
+
+function MR:CreateTrailConnection(fromElement, toElement)
+    if not fromElement or not toElement or not fromElement.point or not toElement.point then return end
+    
+    local fromPoint = fromElement.point
+    local toPoint = toElement.point
+    
+    -- Calculate distance to determine if we should draw a line
+    local distance = math.sqrt((toPoint.x - fromPoint.x)^2 + (toPoint.y - fromPoint.y)^2)
+    
+    -- Only connect nearby points (avoid long lines when teleporting/loading)
+    if distance > 0.1 then return end -- 10% of map width/height
+    
+    -- Create a line texture between the points
+    local line = self.mapDisplay:CreateTexture(nil, "ARTWORK")
+    line:SetHeight(2)
+    
+    -- Color based on combat status
+    if fromPoint.inCombat or toPoint.inCombat then
+        line:SetColorTexture(1, 0.3, 0.1, 0.4) -- Red combat trail
+    else
+        line:SetColorTexture(0.2, 0.6, 1, 0.3) -- Blue peaceful trail
+    end
+    
+    -- Position the line (simplified line drawing)
+    local displayWidth = self.mapDisplay:GetWidth()
+    local displayHeight = self.mapDisplay:GetHeight()
+    
+    local fromX = fromPoint.x * displayWidth
+    local fromY = (1 - fromPoint.y) * displayHeight
+    local toX = toPoint.x * displayWidth
+    local toY = (1 - toPoint.y) * displayHeight
+    
+    local lineDistance = math.sqrt((toX - fromX)^2 + (toY - fromY)^2)
+    line:SetWidth(lineDistance)
+    
+    local centerX = (fromX + toX) / 2
+    local centerY = (fromY + toY) / 2
+    
+    line:SetPoint("CENTER", self.mapDisplay, "BOTTOMLEFT", centerX, centerY)
+    
+    -- Store line for cleanup
+    toElement.connectionLine = line
+end
+
+function MR:FadeOldTrailPoints()
+    local currentTime = GetTime()
+    local fadeStartTime = currentTime - self.trailFadeTime
+    
+    for _, element in ipairs(self.trailLines) do
+        if element.texture and element.time then
+            local age = currentTime - element.time
+            local alpha = 1 - (age / self.trailFadeTime)
+            alpha = math.max(0.1, math.min(1, alpha))
+            
+            element.texture:SetAlpha(alpha)
+            if element.connectionLine then
+                element.connectionLine:SetAlpha(alpha * 0.5)
+            end
+        end
+    end
+end
+
+function MR:UpdateTrailOpacity(opacity)
+    for _, element in ipairs(self.trailLines) do
+        if element.texture then
+            local currentAlpha = element.texture:GetAlpha()
+            element.texture:SetAlpha(currentAlpha * opacity)
+        end
+        if element.connectionLine then
+            local currentAlpha = element.connectionLine:GetAlpha()
+            element.connectionLine:SetAlpha(currentAlpha * opacity)
+        end
+    end
+end
+
+function MR:ClearTrail()
+    -- Hide all trail visuals
+    for _, element in ipairs(self.trailLines) do
+        if element.texture then
+            element.texture:Hide()
+            element.texture = nil
+        end
+        if element.connectionLine then
+            element.connectionLine:Hide()
+            element.connectionLine = nil
+        end
+    end
+    
+    -- Clear data
+    self.trailPoints = {}
+    self.trailLines = {}
+    
+    self:UpdateTrailInfo()
+    
+    if TCP.debug then
+        print("TCP: Trail cleared")
+    end
+end
+
+function MR:UpdateTrailInfo()
+    local pointCount = #self.trailPoints
+    local timeSpan = 0
+    
+    if pointCount > 1 then
+        timeSpan = self.trailPoints[pointCount].time - self.trailPoints[1].time
+    end
+    
+    self.trailInfo:SetText(string.format("Trail: %d points | %.1f minutes", 
+        pointCount, timeSpan / 60))
+end
+
+function MR:StartManualRecording(name)
+    -- Manual recording for specific events (keeping original functionality)
+    local recordingName = name or ("Manual Recording " .. (#self.recordings + 1))
+    
+    local recording = {
+        name = recordingName,
+        startTime = GetTime(),
+        trailPoints = {},
+        mapID = C_Map.GetBestMapForUnit("player"),
+        zoneName = GetZoneText() or "Unknown Zone"
+    }
+    
+    -- Copy current trail points to manual recording
+    for _, point in ipairs(self.trailPoints) do
+        table.insert(recording.trailPoints, {
+            x = point.x,
+            y = point.y,
+            time = point.time - recording.startTime,
+            inCombat = point.inCombat,
+            health = point.health
+        })
+    end
+    
+    recording.endTime = GetTime()
+    recording.duration = recording.endTime - recording.startTime
+    
+    table.insert(self.recordings, recording)
+    
+    print("TCP: Manual recording saved:", recordingName)
+    print("  Points:", #recording.trailPoints)
+    print("  Duration:", string.format("%.1f minutes", recording.duration / 60))
+end
+
+-- Initialize
+MR:Initialize()
 
 function MR:CreateMapFrame()
     -- Main map recording frame
