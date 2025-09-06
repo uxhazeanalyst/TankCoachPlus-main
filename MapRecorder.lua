@@ -34,16 +34,75 @@ function MR:CreateMapFrame()
     self.mapFrame:SetSize(600, 500)
     self.mapFrame:SetPoint("CENTER", 200, 0)
     self.mapFrame:SetMovable(true)
+    self.mapFrame:SetResizable(true)
     self.mapFrame:EnableMouse(true)
     self.mapFrame:RegisterForDrag("LeftButton")
     self.mapFrame:SetScript("OnDragStart", self.mapFrame.StartMoving)
     self.mapFrame:SetScript("OnDragStop", self.mapFrame.StopMovingOrSizing)
+    self.mapFrame:SetMinResize(300, 250)
+    self.mapFrame:SetMaxResize(1200, 900)
     self.mapFrame:Hide()
+    
+    -- Create resize handle in bottom-right corner
+    self.resizeHandle = CreateFrame("Button", nil, self.mapFrame)
+    self.resizeHandle:SetSize(16, 16)
+    self.resizeHandle:SetPoint("BOTTOMRIGHT", -2, 2)
+    self.resizeHandle:EnableMouse(true)
+    self.resizeHandle:RegisterForDrag("LeftButton")
+    
+    -- Resize handle texture (corner grip)
+    self.resizeHandle.texture = self.resizeHandle:CreateTexture(nil, "OVERLAY")
+    self.resizeHandle.texture:SetAllPoints()
+    self.resizeHandle.texture:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    
+    -- Resize handle hover effect
+    self.resizeHandle.highlight = self.resizeHandle:CreateTexture(nil, "HIGHLIGHT")
+    self.resizeHandle.highlight:SetAllPoints()
+    self.resizeHandle.highlight:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    
+    -- Resize functionality
+    self.resizeHandle:SetScript("OnDragStart", function()
+        self.mapFrame:StartSizing("BOTTOMRIGHT")
+        self.mapFrame:SetScript("OnSizeChanged", function()
+            self:OnFrameResized()
+        end)
+    end)
+    
+    self.resizeHandle:SetScript("OnDragStop", function()
+        self.mapFrame:StopMovingOrSizing()
+        self.mapFrame:SetScript("OnSizeChanged", nil)
+    end)
     
     -- Title
     self.mapFrame.title = self.mapFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
     self.mapFrame.title:SetPoint("TOP", 0, -8)
     self.mapFrame.title:SetText("Map Recorder")
+    
+    -- Minimize/Restore button
+    self.minimizeBtn = CreateFrame("Button", nil, self.mapFrame)
+    self.minimizeBtn:SetSize(20, 20)
+    self.minimizeBtn:SetPoint("TOPRIGHT", -25, -5)
+    self.minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
+    self.minimizeBtn:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight")
+    self.minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
+    
+    -- Store original size for restore
+    self.originalSize = {width = 600, height = 500}
+    self.isMinimized = false
+    
+    self.minimizeBtn:SetScript("OnClick", function()
+        self:ToggleMinimize()
+    end)
+    
+    -- Minimize button tooltip
+    self.minimizeBtn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(self.minimizeBtn, "ANCHOR_LEFT")
+        GameTooltip:SetText(self.isMinimized and "Restore Window" or "Minimize Window")
+        GameTooltip:Show()
+    end)
+    self.minimizeBtn:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
     
     -- Map display area with actual map background
     self.mapDisplay = CreateFrame("Frame", nil, self.mapFrame, "BackdropTemplate")
@@ -95,6 +154,103 @@ function MR:CreateMapFrame()
     TCP.MapRecorderUI = self.mapFrame
 end
 
+function MR:OnFrameResized()
+    -- Clear existing trail visuals since coordinates need to be recalculated
+    for _, element in ipairs(self.trailLines) do
+        if element.texture then
+            element.texture:Hide()
+            element.texture = nil
+        end
+        if element.connectionLine then
+            element.connectionLine:Hide()
+            element.connectionLine = nil
+        end
+    end
+    self.trailLines = {}
+    
+    -- Redraw the trail with new dimensions
+    self:RedrawTrail()
+    
+    -- Update control panel layout if needed
+    self:UpdateControlPanelLayout()
+end
+
+function MR:RedrawTrail()
+    -- Redraw all trail points with current window dimensions
+    for i, point in ipairs(self.trailPoints) do
+        self:CreateTrailVisual(point, i)
+    end
+end
+
+function MR:ToggleMinimize()
+    if self.isMinimized then
+        -- Restore window
+        self.mapFrame:SetSize(self.originalSize.width, self.originalSize.height)
+        self.mapDisplay:Show()
+        self.controlPanel:Show()
+        self.resizeHandle:Show()
+        
+        -- Update button texture
+        self.minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
+        self.minimizeBtn:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight")
+        self.minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
+        
+        self.isMinimized = false
+        
+        -- Redraw trail
+        self:RedrawTrail()
+        
+    else
+        -- Store current size
+        self.originalSize.width = self.mapFrame:GetWidth()
+        self.originalSize.height = self.mapFrame:GetHeight()
+        
+        -- Minimize window
+        self.mapFrame:SetSize(250, 40)
+        self.mapDisplay:Hide()
+        self.controlPanel:Hide()
+        self.resizeHandle:Hide()
+        
+        -- Update button texture to restore icon
+        self.minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-ExpandButton-Up")
+        self.minimizeBtn:SetHighlightTexture("Interface\\Buttons\\UI-Panel-ExpandButton-Highlight")
+        self.minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-ExpandButton-Down")
+        
+        self.isMinimized = true
+    end
+end
+    -- Adjust control panel based on window width
+    local frameWidth = self.mapFrame:GetWidth()
+    
+    if frameWidth < 400 then
+        -- Compact layout for small windows
+        self.continuousBtn:SetSize(80, 20)
+        self.manualBtn:SetSize(70, 20)
+        self.clearBtn:SetSize(60, 20)
+        self.opacitySlider:SetSize(80, 15)
+        
+        -- Stack controls in two rows if very narrow
+        if frameWidth < 350 then
+            self.manualBtn:ClearAllPoints()
+            self.manualBtn:SetPoint("LEFT", 5, -5)
+            self.clearBtn:ClearAllPoints()
+            self.clearBtn:SetPoint("LEFT", self.manualBtn, "RIGHT", 5, 0)
+        end
+    else
+        -- Normal layout for larger windows
+        self.continuousBtn:SetSize(120, 25)
+        self.manualBtn:SetSize(100, 25)
+        self.clearBtn:SetSize(80, 25)
+        self.opacitySlider:SetSize(120, 20)
+        
+        -- Reset to single row
+        self.manualBtn:ClearAllPoints()
+        self.manualBtn:SetPoint("LEFT", self.continuousBtn, "RIGHT", 5, 0)
+        self.clearBtn:ClearAllPoints()
+        self.clearBtn:SetPoint("LEFT", self.manualBtn, "RIGHT", 5, 0)
+    end
+end
+
 function MR:UpdateMapBackground()
     local mapID = C_Map.GetBestMapForUnit("player")
     if not mapID then return end
@@ -134,34 +290,34 @@ end
 
 function MR:CreateControlPanel()
     -- Control panel at bottom of map frame
-    local panel = CreateFrame("Frame", nil, self.mapFrame)
-    panel:SetPoint("BOTTOMLEFT", 15, 10)
-    panel:SetPoint("BOTTOMRIGHT", -35, 10)
-    panel:SetHeight(45)
+    self.controlPanel = CreateFrame("Frame", nil, self.mapFrame)
+    self.controlPanel:SetPoint("BOTTOMLEFT", 15, 10)
+    self.controlPanel:SetPoint("BOTTOMRIGHT", -35, 10)
+    self.controlPanel:SetHeight(45)
     
     -- Continuous recording toggle
-    self.continuousBtn = CreateFrame("Button", nil, panel, "GameMenuButtonTemplate")
+    self.continuousBtn = CreateFrame("Button", nil, self.controlPanel, "GameMenuButtonTemplate")
     self.continuousBtn:SetSize(120, 25)
     self.continuousBtn:SetPoint("LEFT", 5, 10)
     self.continuousBtn:SetText("Stop Recording")
     self.continuousBtn:SetScript("OnClick", function() self:ToggleContinuousRecording() end)
     
     -- Manual recording button
-    self.manualBtn = CreateFrame("Button", nil, panel, "GameMenuButtonTemplate")
+    self.manualBtn = CreateFrame("Button", nil, self.controlPanel, "GameMenuButtonTemplate")
     self.manualBtn:SetSize(100, 25)
     self.manualBtn:SetPoint("LEFT", self.continuousBtn, "RIGHT", 5, 0)
     self.manualBtn:SetText("Manual Record")
     self.manualBtn:SetScript("OnClick", function() self:StartManualRecording() end)
     
     -- Clear trail button
-    self.clearBtn = CreateFrame("Button", nil, panel, "GameMenuButtonTemplate")
+    self.clearBtn = CreateFrame("Button", nil, self.controlPanel, "GameMenuButtonTemplate")
     self.clearBtn:SetSize(80, 25)
     self.clearBtn:SetPoint("LEFT", self.manualBtn, "RIGHT", 5, 0)
     self.clearBtn:SetText("Clear Trail")
     self.clearBtn:SetScript("OnClick", function() self:ClearTrail() end)
     
     -- Trail opacity slider
-    self.opacitySlider = CreateFrame("Slider", nil, panel, "OptionsSliderTemplate")
+    self.opacitySlider = CreateFrame("Slider", nil, self.controlPanel, "OptionsSliderTemplate")
     self.opacitySlider:SetPoint("LEFT", self.clearBtn, "RIGHT", 20, 0)
     self.opacitySlider:SetSize(120, 20)
     self.opacitySlider:SetMinMaxValues(0.1, 1.0)
@@ -174,7 +330,7 @@ function MR:CreateControlPanel()
     end)
     
     -- Trail length info
-    self.trailInfo = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    self.trailInfo = self.controlPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     self.trailInfo:SetPoint("BOTTOM", 0, 5)
     self.trailInfo:SetTextColor(0.8, 0.8, 0.8)
 end
